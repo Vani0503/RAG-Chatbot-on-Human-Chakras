@@ -3,6 +3,8 @@ from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
 import os
 
+os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
+
 st.title("🧠 RAG Chatbot on Human Chakras")
 
 query = st.text_input("Ask a question")
