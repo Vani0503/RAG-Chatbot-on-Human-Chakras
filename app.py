@@ -1,8 +1,6 @@
 import streamlit as st
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
-from langchain.chains import ConversationalRetrievalChain
-from langchain.memory import ConversationBufferMemory
 
 @st.cache_resource
 def load_vectorstore():
@@ -16,22 +14,10 @@ def load_vectorstore():
 
 vector_store = load_vectorstore()
 retriever = vector_store.as_retriever(search_kwargs={"k": 3})
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
-
-if "chain" not in st.session_state:
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-    st.session_state.chain = ConversationalRetrievalChain.from_llm(
-        llm=llm,
-        retriever=retriever,
-        memory=ConversationBufferMemory(
-            memory_key="chat_history",
-            return_messages=True,
-            output_key="answer"
-        ),
-        return_source_documents=True
-    )
 
 st.title("🧠 RAG Chatbot on Human Chakras")
 
@@ -44,19 +30,40 @@ if query := st.chat_input("Enter your question:"):
     with st.chat_message("user"):
         st.markdown(query)
 
-    result = st.session_state.chain({"question": query})
-    answer = result["answer"]
-    docs = result["source_documents"]
+    # Build chat history string for context
+    history_text = ""
+    for m in st.session_state.messages[:-1]:  # exclude current query
+        role = "User" if m["role"] == "user" else "Assistant"
+        history_text += f"{role}: {m['content']}\n"
+
+    # Retrieve relevant docs
+    docs = retriever.invoke(query)
+    context = "\n\n".join([doc.page_content for doc in docs])
     sources = list(set([doc.metadata.get("source", "Unknown") for doc in docs]))
+
+    # Prompt with memory
+    final_prompt = f"""You are a helpful assistant. Use the context below to answer the question.
+If the answer is not in the context, say you don't know.
+
+Previous conversation:
+{history_text}
+
+Context:
+{context}
+
+Question: {query}
+"""
+
+    response = llm.invoke(final_prompt)
+    answer = response.content
 
     st.session_state.messages.append({"role": "assistant", "content": answer})
     with st.chat_message("assistant"):
         st.markdown(answer)
-        st.subheader("Sources")
-        for source in sources:
-            st.write("-", source)
+        with st.expander("📄 Sources"):
+            for source in sources:
+                st.write("-", source)
 
 if st.sidebar.button("🗑️ Clear Chat"):
     st.session_state.messages = []
-    del st.session_state["chain"]
     st.rerun()
