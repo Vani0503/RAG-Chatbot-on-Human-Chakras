@@ -4,6 +4,8 @@ This project implements a Retrieval-Augmented Generation (RAG) chatbot. The syst
 
 # Live demo: https://rag-chatbot-on-human-chakras-835cnokags38vzqxyg8hgs.streamlit.app/
 
+# Substack link: https://substack.com/@vanibatra/p-190170072
+
 # Architecture:
   User question > Embedding generation > FAISS vector search using semantic search > Relevant context retrieval > LLM to generate answer via GPT-4o-min > Grounded answer+source citation
   
